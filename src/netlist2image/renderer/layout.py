@@ -451,70 +451,172 @@ def compute_layout(
         cy = round(cy / _GRID) * _GRID
         elem_positions[eid] = (cx, cy)
 
-    # Compute preliminary node positions (no rotation) for rotation decision
-    node_pos_prelim: Dict[str, List[Tuple[float, float]]] = {}
-    for elem in netlist.elements:
-        sym = elem_symbols[elem.id]
-        ex, ey = elem_positions[elem.id]
-        for pin_idx, node_name in enumerate(elem.pins):
-            px, py = sym.pins[pin_idx] if pin_idx < len(sym.pins) else (0, 0)
-            if node_name not in node_pos_prelim:
-                node_pos_prelim[node_name] = []
-            node_pos_prelim[node_name].append((ex + px, ey + py))
+    # ------------------------------------------------------------------
+    # Rotation selection — iterative refinement.
+    #
+    # The naive approach (compute node positions from unrotated pins, then
+    # pick rotations) is circular: node positions depend on rotations, but
+    # rotations are chosen before node positions are known.  For 3-pin
+    # devices like transistors this often picks nonsense orientations (e.g.
+    # emitter pointing up when the emitter node is 200 px below).
+    #
+    # We solve this by iterating:
+    #   1. Start with all rotations = 0.
+    #   2. Compute node positions from the CURRENT rotations.
+    #   3. Recompute the best rotation for every element using those nodes.
+    #   4. Repeat until no rotation changes (usually 2-3 iterations).
+    #
+    # The ground-down constraint is applied at every iteration.
+    # ------------------------------------------------------------------
 
-    node_prelim = {
-        name: (sum(x for x, _ in pts) / len(pts), sum(y for _, y in pts) / len(pts))
-        for name, pts in node_pos_prelim.items()
-    }
-
-    # Determine best rotation for each element.
-    # Primary objective: align pins with their node positions.
-    # Hard constraint: any pin connected to GND MUST point downward (ry > 0 in
-    # SVG coordinates).  This ensures ground symbols sit at the bottom of the
-    # schematic regardless of where the spring layout placed the elements.
-    elem_rotations: Dict[str, int] = {}
-    for elem in netlist.elements:
-        sym = elem_symbols[elem.id]
-        ex, ey = elem_positions[elem.id]
+    def _valid_rots_for(elem: Element, sym: SymbolDef) -> List[int]:
+        """Return rotations that satisfy the ground-down constraint."""
         has_ground = "GND" in elem.pins
-
-        # Pre-filter to rotations that satisfy the ground-down constraint
-        valid_rots = []
+        if not has_ground:
+            return [0, 90, 180, 270]
+        valid = []
         for rot in [0, 90, 180, 270]:
-            if not has_ground:
-                valid_rots.append(rot)
-                continue
-            ground_ok = True
+            ok = True
             for pin_idx, node_name in enumerate(elem.pins):
                 if node_name == "GND" and pin_idx < len(sym.pins):
-                    px, py = sym.pins[pin_idx]
-                    _rx, ry = _rotate_point(px, py, rot)
-                    if ry <= 0:          # not pointing downward
-                        ground_ok = False
+                    _rx, ry = _rotate_point(sym.pins[pin_idx][0], sym.pins[pin_idx][1], rot)
+                    if ry <= 0:
+                        ok = False
                         break
-            if ground_ok:
-                valid_rots.append(rot)
+            if ok:
+                valid.append(rot)
+        return valid if valid else [0, 90, 180, 270]
 
-        if not valid_rots:
-            valid_rots = [0, 90, 180, 270]  # fallback (should never happen)
+    def _compute_node_centers(rots: Dict[str, int]) -> Dict[str, Tuple[float, float]]:
+        """Compute node positions from rotated pin positions."""
+        pos: Dict[str, List[Tuple[float, float]]] = {}
+        for elem in netlist.elements:
+            sym = elem_symbols[elem.id]
+            ex, ey = elem_positions[elem.id]
+            rot = rots[elem.id]
+            for pin_idx, node_name in enumerate(elem.pins):
+                if pin_idx < len(sym.pins):
+                    px, py = sym.pins[pin_idx]
+                    rx, ry = _rotate_point(px, py, rot)
+                    if node_name not in pos:
+                        pos[node_name] = []
+                    pos[node_name].append((ex + rx, ey + ry))
+        return {
+            name: (sum(x for x, _ in pts) / len(pts), sum(y for _, y in pts) / len(pts))
+            for name, pts in pos.items()
+        }
 
-        best_rot = valid_rots[0]
-        best_error = float("inf")
-        for rot in valid_rots:
-            error = 0.0
+    # Precompute which nodes connect to sources (Vcc/Vdd) and which to GND
+    _nodes_with_sources: set[str] = set()
+    _nodes_with_ground: set[str] = set()
+    for net in netlist.nets:
+        for elem_id, _pin_idx in net.element_pins:
+            elem = next((e for e in netlist.elements if e.id == elem_id), None)
+            if elem:
+                if elem.type in ("V", "I"):
+                    _nodes_with_sources.add(net.name)
+                if "GND" in elem.pins:
+                    # This element has a ground pin; check if this net is that pin
+                    for pi, pn in enumerate(elem.pins):
+                        if pn == net.name and pi == _pin_idx:
+                            _nodes_with_ground.add(net.name)
+
+    def _best_rotation(elem: Element, valid: List[int], nodes: Dict[str, Tuple[float, float]]) -> int:
+        """Pick the rotation with minimal pin-to-node squared error.
+
+        For transistors (Q, M) an additional topology bias is applied:
+        * pins on nodes that connect to sources (Vcc) are nudged UPWARD,
+        * pins on nodes that connect to GND are nudged DOWNWARD.
+        This prevents the absurd outcome where a CE amp's emitter points
+        up toward the collector node 200 px above it.
+        """
+        sym = elem_symbols[elem.id]
+        ex, ey = elem_positions[elem.id]
+        is_transistor = elem.type in ("Q", "M")
+        best_rot = valid[0]
+        best_err = float("inf")
+        for rot in valid:
+            err = 0.0
             for pin_idx, node_name in enumerate(elem.pins):
                 if pin_idx >= len(sym.pins):
                     break
                 px, py = sym.pins[pin_idx]
                 rx, ry = _rotate_point(px, py, rot)
-                pin_x = ex + rx
-                pin_y = ey + ry
-                nx, ny = node_prelim.get(node_name, (pin_x, pin_y))
-                error += (pin_x - nx) ** 2 + (pin_y - ny) ** 2
-            if error < best_error:
-                best_error = error
+                nx, ny = nodes.get(node_name, (ex + rx, ey + ry))
+                err += (ex + rx - nx) ** 2 + (ey + ry - ny) ** 2
+
+                # Topology bias for transistors ---------------------------------
+                if is_transistor:
+                    pin_y_global = ey + ry
+                    # Pin on a source node (Vcc) should point UP (lower y)
+                    if node_name in _nodes_with_sources and pin_y_global > ey - 5:
+                        err += 25_000.0
+                    # Pin on a ground node should point DOWN (higher y)
+                    if node_name in _nodes_with_ground and pin_y_global < ey + 5:
+                        err += 25_000.0
+                    # Prefer vertical orientation (90 or 270) for transistors
+                    if rot not in (90, 270):
+                        err += 8_000.0
+                # ----------------------------------------------------------------
+
+            if err < best_err:
+                best_err = err
                 best_rot = rot
-        elem_rotations[elem.id] = best_rot
+        return best_rot
+
+    # Seed rotations: start from previous guess or 0
+    elem_rotations: Dict[str, int] = {e.id: 0 for e in netlist.elements}
+    elem_valid_rots = {e.id: _valid_rots_for(e, elem_symbols[e.id]) for e in netlist.elements}
+
+    for _ in range(10):
+        node_centers = _compute_node_centers(elem_rotations)
+        changed = False
+        for elem in netlist.elements:
+            new_rot = _best_rotation(elem, elem_valid_rots[elem.id], node_centers)
+            if elem_rotations[elem.id] != new_rot:
+                elem_rotations[elem.id] = new_rot
+                changed = True
+        if not changed:
+            break
+
+    # ------------------------------------------------------------------
+    # Hard post-process for transistors: emitter/source must point toward
+    # its node, collector/drain must point away from it.  This catches the
+    # cases where the iterative metric still picks the wrong orientation
+    # because the spring layout placed neighbour nodes asymmetrically.
+    # ------------------------------------------------------------------
+    node_centers = _compute_node_centers(elem_rotations)
+    for elem in netlist.elements:
+        if elem.type not in ("Q", "M", "J"):
+            continue
+        sym = elem_symbols[elem.id]
+        rot = elem_rotations[elem.id]
+        ex, ey = elem_positions[elem.id]
+
+        # Find emitter/source pin by name
+        e_pin_idx = None
+        for idx, pin_name in enumerate(elem.pins):
+            if pin_name.lower() in {"emitter", "source"}:
+                e_pin_idx = idx
+                break
+
+        if e_pin_idx is not None and e_pin_idx < len(sym.pins):
+            e_name = elem.pins[e_pin_idx]
+            epx, epy = sym.pins[e_pin_idx]
+            erx, ery = _rotate_point(epx, epy, rot)
+            e_pin_y = ey + ery
+            e_node_y = node_centers.get(e_name, (ex, e_pin_y))[1]
+
+            # If emitter/source points UP (ery < 0) but node is BELOW,
+            # or points DOWN (ery > 0) but node is ABOVE, flip 180°.
+            if ery < 0 and e_node_y > e_pin_y + 40:
+                new_rot = (rot + 180) % 360
+                if new_rot in elem_valid_rots[elem.id]:
+                    elem_rotations[elem.id] = new_rot
+            elif ery > 0 and e_node_y < e_pin_y - 40:
+                new_rot = (rot + 180) % 360
+                if new_rot in elem_valid_rots[elem.id]:
+                    elem_rotations[elem.id] = new_rot
 
     # Build RenderedNetlist
     rendered = RenderedNetlist(

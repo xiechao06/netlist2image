@@ -15,10 +15,11 @@ DIODE = SymbolDef(
 )
 
 # NPN BJT
+# SPICE pin order: collector, base, emitter  →  symbol pins [C, B, E]
 NPN = SymbolDef(
     width=60,
     height=80,
-    pins=[(-30, -30), (-30, 30), (30, 0)],  # C, E, B
+    pins=[(-30, -30), (30, 0), (-30, 30)],
     svg_paths=[
         # Base line
         "M -30 0 L -10 0",
@@ -32,10 +33,11 @@ NPN = SymbolDef(
 )
 
 # PNP BJT
+# SPICE pin order: collector, base, emitter  →  symbol pins [C, B, E]
 PNP = SymbolDef(
     width=60,
     height=80,
-    pins=[(-30, -30), (-30, 30), (30, 0)],  # C, E, B
+    pins=[(-30, -30), (30, 0), (-30, 30)],
     svg_paths=[
         "M -30 0 L -10 0",
         "M -10 -10 L 30 -30",
@@ -46,10 +48,11 @@ PNP = SymbolDef(
 )
 
 # NMOS MOSFET
+# SPICE pin order: drain, gate, source, bulk  →  symbol pins [D, G, S, B]
 NMOS = SymbolDef(
     width=80,
     height=80,
-    pins=[(-40, -30), (-40, 30), (40, -30), (40, 30)],  # D, S, G, B (simplified 4-terminal)
+    pins=[(-40, -30), (40, -30), (-40, 30), (40, 30)],
     svg_paths=[
         # Gate line vertical
         "M 0 -30 L 0 30",
@@ -68,10 +71,11 @@ NMOS = SymbolDef(
 )
 
 # PMOS MOSFET
+# SPICE pin order: drain, gate, source, bulk  →  symbol pins [D, G, S, B]
 PMOS = SymbolDef(
     width=80,
     height=80,
-    pins=[(-40, -30), (-40, 30), (40, -30), (40, 30)],
+    pins=[(-40, -30), (40, -30), (-40, 30), (40, 30)],
     svg_paths=[
         "M 0 -30 L 0 30",
         "M -40 -30 L -15 -30 L -15 -20",
@@ -85,10 +89,11 @@ PMOS = SymbolDef(
 )
 
 # JFET (generic n-channel)
+# SPICE pin order: drain, gate, source  →  symbol pins [D, G, S]
 JFET = SymbolDef(
     width=60,
     height=80,
-    pins=[(-30, -30), (-30, 30), (30, 0)],  # D, S, G
+    pins=[(-30, -30), (30, 0), (-30, 30)],
     svg_paths=[
         "M -30 0 L 0 0",
         "M 0 -30 L 0 30",
@@ -98,6 +103,7 @@ JFET = SymbolDef(
         "M 10 -5 L 20 0 L 10 5",
     ],
 )
+
 
 SUBCIRCUIT = SymbolDef(
     width=80,
