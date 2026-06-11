@@ -1,0 +1,29 @@
+[project]
+name = "netlist2image"
+version = "0.1.0"
+description = "Convert SPICE netlists to schematic images for ML training"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "networkx>=3.0",
+    "numpy>=1.26",
+    "cairosvg>=2.7",
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "lcapy>=1.26",
+    "schemdraw>=0.23",
+]
+
+[project.scripts]
+netlist2image = "netlist2image.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/netlist2image"]
