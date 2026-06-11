@@ -64,7 +64,13 @@ def render_with_netlistsvg(
             "-o", str(output_path),
             "--skin", str(skin_path),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "netlistsvg command not found. "
+                "Install it globally with: npm install -g netlistsvg"
+            ) from exc
         if result.returncode != 0:
             raise RuntimeError(f"netlistsvg failed: {result.stderr}")
 

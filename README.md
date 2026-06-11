@@ -31,10 +31,14 @@ The default renderer (`renderer/layout.py`) uses a hybrid pipeline:
 
 ## Installation
 
-Requires Python >= 3.12 (pinned to 3.14 for development).
+Requires Python >= 3.12 (pinned to 3.14 for development) and Node.js >= 18 if you want the `netlistsvg` backend.
 
 ```bash
+# Python dependencies
 uv sync
+
+# Optional: install the ELK-based netlistsvg backend globally
+npm install -g netlistsvg
 ```
 
 ## CLI Usage
