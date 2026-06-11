@@ -10,6 +10,7 @@ Convert SPICE netlists to schematic images for machine-learning training data.
 - **Topology-aware layout engine** — detects series chains, parallel branches, and star nodes; seeds the spring layout with human-like initial positions
 - **Ground-aware rotation** — elements with a ground pin are automatically oriented so the pin points downward
 - **Smart orthogonal wire routing** — Z-shaped 2-pin routes and rectilinear bus routing for multi-pin nets
+- **Two rendering backends** — the default custom SVG engine (topology-aware) and an optional `netlistsvg` backend powered by the Eclipse Layout Kernel (ELK)
 - Produce **3–5 layout variants** per netlist with deterministic seeds
 - Built-in symbol library for common analog components (R, C, L, V, I, D, Q, M, J, X)
 - Black-box fallback for unsupported elements
@@ -44,6 +45,9 @@ netlist2image circuit.cir --output-dir ./dataset/
 
 # Directory of netlists
 netlist2image ./netlists/ --output-dir ./dataset/ --variants 5
+
+# Use the ELK-based netlistsvg backend instead of the default
+netlist2image circuit.cir -o ./dataset/ --backend netlistsvg
 
 # Override seed, show values, custom model map
 netlist2image circuit.cir -o ./dataset/ --seed 42 --show-values --model-map ./my_models.yaml
