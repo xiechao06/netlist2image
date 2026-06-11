@@ -1,0 +1,8 @@
+* Series RLC resonance
+Vin in 0 AC 1
+R1 in mid 220
+L1 mid n1 22m
+C1 n1 0 33n
+.ac dec 500 10 10Meg
+.print ac V(mid) V(n1)
+.end

@@ -1,0 +1,10 @@
+* Resistor network — Thevenin equivalent
+Vs in 0 DC 21.23
+Ra in n1 820
+Rb n1 out 180k
+Rc out n2 68k
+Rd n2 0 12k
+Rload out 0 8.2k
+.op
+.print dc V(out) I(Vs)
+.end

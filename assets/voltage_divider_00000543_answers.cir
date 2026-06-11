@@ -1,0 +1,7 @@
+* Voltage divider — DC operating point
+Vin in 0 DC 23.64
+R1 in out 6.8k
+R2 out 0 120k
+.op
+.print dc V(out)
+.end

@@ -1,0 +1,15 @@
+* Non-inverting op-amp
+Vs in 0 DC 2.54
+Ra in nplus 1.5k
+Rdiv nplus 0 18k
+Rf out minus 68k
+Rs minus 0 22k
+.subckt IDEAL_OPAMP in+ in- out
+Rin in+ in- 1000Meg
+E1 out 0 in+ in- 1e6
+.ends IDEAL_OPAMP
+
+X1 nplus minus out IDEAL_OPAMP
+.op
+.print dc V(out) V(nplus)
+.end

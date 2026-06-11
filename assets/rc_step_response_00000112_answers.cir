@@ -1,0 +1,7 @@
+* RC step response — transient analysis
+Vin in 0 PWL(0 0 1.8330e-03 0 1.8348e-03 7.2949888198432395)
+R1 in out 390k
+C1 out 0 4.7u
+.tran 0.001833 18.33
+.print tran V(out)
+.end

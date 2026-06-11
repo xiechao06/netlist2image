@@ -1,0 +1,7 @@
+* Series RL phasor (single frequency)
+Vin in 0 DC 0 AC 1
+R1 in nrl 15
+L1 nrl 0 1m
+.ac lin 1 2k 2k
+.print ac V(nrl)
+.end

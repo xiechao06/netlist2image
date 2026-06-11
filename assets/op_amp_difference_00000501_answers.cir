@@ -1,0 +1,16 @@
+* Difference amplifier
+Va ina 0 DC 5.3
+Vb inb 0 DC 5.22
+Ra ina minus 18k
+Rb inb nplus 18k
+Rc nplus 0 68k
+Rf out minus 68k
+.subckt IDEAL_OPAMP in+ in- out
+Rin in+ in- 1000Meg
+E1 out 0 in+ in- 1e6
+.ends IDEAL_OPAMP
+
+X1 nplus minus out IDEAL_OPAMP
+.op
+.print dc V(out)
+.end

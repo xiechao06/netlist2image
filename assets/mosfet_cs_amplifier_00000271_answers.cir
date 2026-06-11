@@ -1,0 +1,15 @@
+* MOSFET CS amplifier
+VDD vdd 0 DC 14.84
+Vin in 0 AC 1
+Cin in gate 68u
+RG1 vdd gate 2.2Meg
+RG2 gate 0 1Meg
+RD vdd drain 12k
+M1 drain gate source 0 NMOS1
+RS source 0 3.9k
+Cout drain out 1u
+Rload out 0 120k
+.model NMOS1 NMOS (Level=1 VTO=2.0 KP=1.0e-3 L=2e-6 W=50e-6 Lambda=0.0 Gamma=0.0 Phi=0.6)
+.ac dec 50 10 10Meg
+.print ac V(out)
+.end

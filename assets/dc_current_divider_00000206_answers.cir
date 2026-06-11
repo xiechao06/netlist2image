@@ -1,0 +1,7 @@
+* DC current divider
+Is 0 v DC 26.644
+R1 v 0 1
+R2 v 0 2
+.op
+.print dc V(v)
+.end

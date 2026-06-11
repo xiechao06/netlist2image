@@ -1,0 +1,8 @@
+* RLC series band-pass filter  (output across R)
+Vin in 0 AC 1
+L1 in mid 22m
+C1 mid out 6.8u
+R1 out 0 5.6
+.ac dec 500 10 10Meg
+.print ac V(out)
+.end

@@ -1,0 +1,12 @@
+* DC multi-source series mesh — Schaum's Fig. 3-27
+V1 n1 0 DC 21.7
+R1 n1 a 1
+R2 a nc 1
+V2 nc nd DC 24.2
+R3 nd ne 4
+V3 b ne DC 13.1
+V4 nf b DC 11.9
+R4 nf 0 4
+.op
+.print dc V(a) V(b)
+.end

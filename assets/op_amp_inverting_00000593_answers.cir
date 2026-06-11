@@ -1,0 +1,18 @@
+* Op-amp inverting amplifier
+VCC vcc 0 DC 12.85
+VEE vee 0 DC -12.85
+Vin in 0 DC 0.8641 AC 1
+Rin in nin 27k
+Rf nin out 220k
+Rgnd nplus 0 10k
+Cpole nin out 10p
+.subckt IDEAL_OPAMP in+ in- out vcc vee
+Rin in+ in- 1Meg
+Rout mid out 75
+E1 mid 0 in+ in- 1e5
+.ends IDEAL_OPAMP
+
+X1 nplus nin out vcc vee IDEAL_OPAMP
+.ac dec 50 1 100Meg
+.print ac V(out)
+.end

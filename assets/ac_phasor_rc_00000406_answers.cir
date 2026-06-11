@@ -1,0 +1,7 @@
+* AC phasor — series RC single-frequency
+Vin in 0 AC 1
+R1 in out 33k
+C1 out 0 3.3u
+.ac lin 1 30.29k 30.29k
+.print ac V(out)
+.end

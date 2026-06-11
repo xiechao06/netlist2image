@@ -1,0 +1,17 @@
+* Summing (inverting) op-amp, 3 inputs
+Va ina 0 DC 1.19
+Vb inb 0 DC 0.2
+Vc inc 0 DC 1.34
+Ra ina minus 82k
+Rb inb minus 82k
+Rc inc minus 82k
+Rf out minus 330k
+.subckt IDEAL_OPAMP in+ in- out
+Rin in+ in- 1000Meg
+E1 out 0 in+ in- 1e6
+.ends IDEAL_OPAMP
+
+X1 0 minus out IDEAL_OPAMP
+.op
+.print dc V(out)
+.end

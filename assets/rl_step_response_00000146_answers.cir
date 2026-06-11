@@ -1,0 +1,7 @@
+* RL step response — transient analysis
+Vin in 0 PWL(0 0 1.4667e-10 0 1.4681e-10 3.95336135442193)
+R1 in mid 15k
+L1 mid 0 2.2m
+.tran 1.467e-10 1.467e-06
+.print tran I(L1)
+.end

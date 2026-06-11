@@ -1,0 +1,16 @@
+* Op-amp inverting amplifier with input-node feedback (Schaum's Fig. 6-37)
+Vs in 0 DC 2.4
+R1 in n1 3.9k
+R2 n1 0 5.6k
+R3 n1 inv 5.6k
+Rf1 n1 out 390k
+Rf2 out inv 82k
+.subckt IDEAL_OPAMP in+ in- out
+Rin in+ in- 1000Meg
+E1 out 0 in+ in- 1e6
+.ends IDEAL_OPAMP
+
+X1 0 inv out IDEAL_OPAMP
+.op
+.print dc V(out)
+.end

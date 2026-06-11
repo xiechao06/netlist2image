@@ -1,0 +1,8 @@
+* DC nodal: Vs+Rs series, Rp shunt, Is current source
+Vs vsrc 0 DC 34.5
+Rs vsrc v 20
+Rp v 0 25
+Is 0 v DC 0.02
+.op
+.print dc V(v)
+.end
