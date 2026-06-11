@@ -580,43 +580,69 @@ def compute_layout(
             break
 
     # ------------------------------------------------------------------
-    # Hard post-process for transistors: emitter/source must point toward
-    # its node, collector/drain must point away from it.  This catches the
-    # cases where the iterative metric still picks the wrong orientation
-    # because the spring layout placed neighbour nodes asymmetrically.
+    # Post-process for transistors: emitter/source must point TOWARD the
+    # neighbour element that shares its net.  Collector/drain must point
+    # TOWARD its neighbour.  Base/gate should point TOWARD its neighbour.
+    #
+    # Using absolute canvas "up/down" breaks when the spring layout has
+    # rotated the whole circuit 90° for variant diversity.  Instead we
+    # look at the actual neighbour element positions.
     # ------------------------------------------------------------------
-    node_centers = _compute_node_centers(elem_rotations)
+    # Build element position lookup
+    elem_center = {eid: elem_positions[eid] for eid in elem_ids}
+
     for elem in netlist.elements:
         if elem.type not in ("Q", "M", "J"):
             continue
         sym = elem_symbols[elem.id]
-        rot = elem_rotations[elem.id]
         ex, ey = elem_positions[elem.id]
+        rot = elem_rotations[elem.id]
 
-        # Find emitter/source pin by name
-        e_pin_idx = None
-        for idx, pin_name in enumerate(elem.pins):
-            if pin_name.lower() in {"emitter", "source"}:
-                e_pin_idx = idx
-                break
+        # For each pin, find the neighbour element that shares this net
+        # (excluding the current element itself)
+        pin_to_neighbour: Dict[int, Tuple[float, float]] = {}
+        for pin_idx, node_name in enumerate(elem.pins):
+            if pin_idx >= len(sym.pins):
+                continue
+            # Find another element on this net
+            for net in netlist.nets:
+                if net.name == node_name:
+                    for other_id, other_pin in net.element_pins:
+                        if other_id != elem.id and other_id in elem_center:
+                            pin_to_neighbour[pin_idx] = elem_center[other_id]
+                            break
+                    break
 
-        if e_pin_idx is not None and e_pin_idx < len(sym.pins):
-            e_name = elem.pins[e_pin_idx]
-            epx, epy = sym.pins[e_pin_idx]
-            erx, ery = _rotate_point(epx, epy, rot)
-            e_pin_y = ey + ery
-            e_node_y = node_centers.get(e_name, (ex, e_pin_y))[1]
+        # Score the current rotation: how well does each pin point toward its neighbour?
+        def _score(r: int) -> float:
+            s = 0.0
+            for pin_idx, (nx, ny) in pin_to_neighbour.items():
+                px, py = sym.pins[pin_idx]
+                rx, ry = _rotate_point(px, py, r)
+                pin_x, pin_y = ex + rx, ey + ry
+                # Ideal: pin points directly at neighbour
+                # Score = negative dot product of (pin_dir) and (neighbour - pin)
+                dx = nx - pin_x
+                dy = ny - pin_y
+                dist = max((dx*dx + dy*dy) ** 0.5, 1.0)
+                # Pin direction vector (from center to pin)
+                pdir_x = rx
+                pdir_y = ry
+                pdir_len = max((pdir_x**2 + pdir_y**2) ** 0.5, 1.0)
+                # Cosine of angle between pin direction and neighbour direction
+                cos_angle = (pdir_x * dx + pdir_y * dy) / (pdir_len * dist)
+                # We want cos_angle ≈ 1 (pin points toward neighbour)
+                s += (1 - cos_angle) * 5000  # penalty for misalignment
+            return s
 
-            # If emitter/source points UP (ery < 0) but node is BELOW,
-            # or points DOWN (ery > 0) but node is ABOVE, flip 180°.
-            if ery < 0 and e_node_y > e_pin_y + 40:
-                new_rot = (rot + 180) % 360
-                if new_rot in elem_valid_rots[elem.id]:
-                    elem_rotations[elem.id] = new_rot
-            elif ery > 0 and e_node_y < e_pin_y - 40:
-                new_rot = (rot + 180) % 360
-                if new_rot in elem_valid_rots[elem.id]:
-                    elem_rotations[elem.id] = new_rot
+        best_rot = rot
+        best_score = _score(rot)
+        for r in elem_valid_rots[elem.id]:
+            sc = _score(r)
+            if sc < best_score:
+                best_score = sc
+                best_rot = r
+        elem_rotations[elem.id] = best_rot
 
     # Build RenderedNetlist
     rendered = RenderedNetlist(
