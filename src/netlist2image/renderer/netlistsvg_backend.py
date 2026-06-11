@@ -20,6 +20,35 @@ from netlist2image.renderer.rasterize import rasterize_svg
 _ANALOG_SKIN = Path(__file__).parents[1] / "data" / "analog.svg"
 
 
+def _find_netlistsvg_cmd() -> List[str]:
+    """Return a command list that can run netlistsvg.
+
+    Tries in order:
+    1. ``netlistsvg`` directly (works when the npm global bin is in PATH and the
+       file has the execute bit).
+    2. ``node <absolute-path-to-netlistsvg.js>`` (works around permission-denied
+       issues on macOS Homebrew installs where the .js file is not +x).
+    3. ``npx netlistsvg`` (last resort, slower but always works if the package is
+       installed anywhere npm can find it).
+    """
+    # 1. direct invocation
+    if subprocess.run(["netlistsvg", "--version"], capture_output=True).returncode == 0:
+        return ["netlistsvg"]
+
+    # 2. node + known global paths
+    for js_path in [
+        "/opt/homebrew/lib/node_modules/netlistsvg/bin/netlistsvg.js",
+        "/usr/local/lib/node_modules/netlistsvg/bin/netlistsvg.js",
+        Path.home() / ".local" / "lib" / "node_modules" / "netlistsvg" / "bin" / "netlistsvg.js",
+        Path.home() / ".nvm" / "versions" / "node" / "v26.0.0" / "lib" / "node_modules" / "netlistsvg" / "bin" / "netlistsvg.js",
+    ]:
+        if Path(js_path).exists():
+            return ["node", str(js_path)]
+
+    # 3. npx fallback
+    return ["npx", "netlistsvg"]
+
+
 def _find_skin() -> Path:
     """Find the analog skin file."""
     if _ANALOG_SKIN.exists():
@@ -58,8 +87,7 @@ def render_with_netlistsvg(
             json.dump(yosys_json, f)
 
         # Call netlistsvg CLI
-        cmd = [
-            "netlistsvg",
+        cmd = _find_netlistsvg_cmd() + [
             str(input_path),
             "-o", str(output_path),
             "--skin", str(skin_path),
